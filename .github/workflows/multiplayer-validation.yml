@@ -30,6 +30,34 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Clean analyzer lints found by validation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          service_path = Path('lib/domain/mdtbbs/mdtbbs_multiplayer_service.dart')
+          service = service_path.read_text()
+          service = service.replace("import 'package:flutter/foundation.dart';\n", '')
+          guard = """      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)\n        return;"""
+          wrapped_guard = """      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id) {\n        return;\n      }"""
+          count = service.count(guard)
+          if count != 4:
+              raise SystemExit(f'expected 4 single-line session guards, found {count}')
+          service = service.replace(guard, wrapped_guard)
+          service_path.write_text(service)
+
+          tunnel_path = Path('lib/domain/mdtbbs/mdtbbs_relay_tunnel.dart')
+          tunnel = tunnel_path.read_text()
+          completer_guard = """        if (completer != null && !completer.isCompleted)\n          completer.complete(signal);"""
+          wrapped_completer_guard = """        if (completer != null && !completer.isCompleted) {\n          completer.complete(signal);\n        }"""
+          count = tunnel.count(completer_guard)
+          if count != 1:
+              raise SystemExit(f'expected 1 auth completer guard, found {count}')
+          tunnel = tunnel.replace(completer_guard, wrapped_completer_guard)
+          tunnel_path.write_text(tunnel)
+          PY
+
       - name: Format changed multiplayer sources
         shell: bash
         run: |
@@ -50,7 +78,7 @@ jobs:
               lib/domain/mdtbbs/mdtbbs_multiplayer_service.dart \
               lib/domain/mdtbbs/mdtbbs_relay_proxy.dart \
               lib/domain/mdtbbs/mdtbbs_relay_tunnel.dart
-            git commit -m "style: dart format multiplayer sources"
+            git commit -m "style: clean multiplayer analyzer lints"
             git push origin HEAD:ci/multiplayer-validation
           fi
 
