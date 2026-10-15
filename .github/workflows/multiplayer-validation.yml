@@ -6,7 +6,7 @@ on:
       - ci/multiplayer-validation
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -30,7 +30,31 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Check formatting of changed multiplayer sources
+      - name: Format changed multiplayer sources
+        shell: bash
+        run: |
+          dart format \
+            lib/data/net/mdtbbs/mdtbbs_relay_frames.dart \
+            lib/domain/mdtbbs/mdtbbs_multiplayer_service.dart \
+            lib/domain/mdtbbs/mdtbbs_relay_proxy.dart \
+            lib/domain/mdtbbs/mdtbbs_relay_tunnel.dart
+          if ! git diff --quiet -- \
+            lib/data/net/mdtbbs/mdtbbs_relay_frames.dart \
+            lib/domain/mdtbbs/mdtbbs_multiplayer_service.dart \
+            lib/domain/mdtbbs/mdtbbs_relay_proxy.dart \
+            lib/domain/mdtbbs/mdtbbs_relay_tunnel.dart; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add \
+              lib/data/net/mdtbbs/mdtbbs_relay_frames.dart \
+              lib/domain/mdtbbs/mdtbbs_multiplayer_service.dart \
+              lib/domain/mdtbbs/mdtbbs_relay_proxy.dart \
+              lib/domain/mdtbbs/mdtbbs_relay_tunnel.dart
+            git commit -m "style: dart format multiplayer sources"
+            git push origin HEAD:ci/multiplayer-validation
+          fi
+
+      - name: Verify formatting
         run: |
           dart format --output=none --set-exit-if-changed \
             lib/data/net/mdtbbs/mdtbbs_relay_frames.dart \
