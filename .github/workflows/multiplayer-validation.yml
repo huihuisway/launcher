@@ -1,0 +1,109 @@
+name: Multiplayer validation
+
+on:
+  push:
+    branches:
+      - ci/multiplayer-validation
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev libayatana-appindicator3-dev
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Check formatting of changed multiplayer sources
+        run: |
+          dart format --output=none --set-exit-if-changed \
+            lib/data/net/mdtbbs/mdtbbs_relay_frames.dart \
+            lib/domain/mdtbbs/mdtbbs_multiplayer_service.dart \
+            lib/domain/mdtbbs/mdtbbs_relay_proxy.dart \
+            lib/domain/mdtbbs/mdtbbs_relay_tunnel.dart
+
+      - name: Analyze changed multiplayer sources
+        run: |
+          flutter analyze \
+            lib/data/net/mdtbbs/mdtbbs_relay_frames.dart \
+            lib/domain/mdtbbs/mdtbbs_multiplayer_service.dart \
+            lib/domain/mdtbbs/mdtbbs_relay_proxy.dart \
+            lib/domain/mdtbbs/mdtbbs_relay_tunnel.dart
+
+      - name: Run existing repository tests
+        run: flutter test
+
+      - name: Run ephemeral relay frame regression tests
+        shell: bash
+        run: |
+          cat > test/__ci_multiplayer_relay_frames_test.dart <<'DART'
+          import 'dart:typed_data';
+
+          import 'package:copper_launcher/data/net/mdtbbs/mdtbbs_relay_frames.dart';
+          import 'package:flutter_test/flutter_test.dart';
+
+          void main() {
+            test('UDP MLR1 frame has exact length and round-trips', () {
+              const peerId = 'peer_123';
+              final payload = <int>[1, 2, 3, 4, 255];
+              final encoded = MdtbbsRelayFrame.udpDatagram(peerId, payload);
+
+              expect(encoded, isNotNull);
+              expect(encoded!.length, 7 + peerId.length + payload.length);
+
+              final parsed = MdtbbsRelayFrame.parse(encoded);
+              expect(parsed, isNotNull);
+              expect(parsed!.type, MdtbbsRelayFrame.typeUdpDatagram);
+              expect(parsed.targetPeerId, peerId);
+              expect(parsed.payload, orderedEquals(payload));
+            });
+
+            test('TCP payload boundary accepts 16 KiB and rejects larger direct frame', () {
+              final maxPayload = Uint8List(MdtbbsRelayFrame.maxTcpPayload);
+              final encoded = MdtbbsRelayFrame.tcpData(42, maxPayload);
+              expect(encoded, isNotNull);
+
+              final parsed = MdtbbsRelayFrame.parse(encoded!);
+              expect(parsed, isNotNull);
+              expect(parsed!.streamId, 42);
+              expect(parsed.payload.length, MdtbbsRelayFrame.maxTcpPayload);
+
+              expect(
+                MdtbbsRelayFrame.tcpData(
+                  42,
+                  Uint8List(MdtbbsRelayFrame.maxTcpPayload + 1),
+                ),
+                isNull,
+              );
+            });
+
+            test('malformed UDP frame without payload is rejected', () {
+              final encoded = MdtbbsRelayFrame.udpDatagram('peer', <int>[9])!;
+              final malformed = Uint8List.fromList(encoded.sublist(0, encoded.length - 1));
+              expect(MdtbbsRelayFrame.parse(malformed), isNull);
+            });
+          }
+          DART
+          flutter test test/__ci_multiplayer_relay_frames_test.dart
+          rm -f test/__ci_multiplayer_relay_frames_test.dart
+
+      - name: Compile Linux debug application
+        run: |
+          flutter config --enable-linux-desktop
+          flutter build linux --debug
