@@ -59,9 +59,8 @@ class MdtbbsMultiplayerService {
   bool _accountResetInFlight = false;
   int _accountEpoch = 0;
 
-  Future<String?> _token() async => tokenOverride != null
-      ? tokenOverride!()
-      : _accounts.ensureAccessToken();
+  Future<String?> _token() async =>
+      tokenOverride != null ? tokenOverride!() : _accounts.ensureAccessToken();
 
   @visibleForTesting
   static Future<String?> Function()? tokenOverride;
@@ -268,7 +267,9 @@ class MdtbbsMultiplayerService {
             return;
           }
         }
-        await _clearStoredSessionAfterServerRejection(expectedAccountEpoch: epoch);
+        await _clearStoredSessionAfterServerRejection(
+          expectedAccountEpoch: epoch,
+        );
         return;
       } on Object catch (error) {
         if (!_isAccountEpochCurrent(epoch)) return;
@@ -426,7 +427,9 @@ class MdtbbsMultiplayerService {
       );
       if (!_isAccountEpochCurrent(epoch)) return;
       if (session == null) {
-        await _clearStoredSessionAfterServerRejection(expectedAccountEpoch: epoch);
+        await _clearStoredSessionAfterServerRejection(
+          expectedAccountEpoch: epoch,
+        );
         return;
       }
       final peers = await MdtbbsMultiplayerApi.peers(
@@ -649,13 +652,15 @@ class MdtbbsMultiplayerService {
         accessToken: token,
         sessionId: session.id,
       );
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id) return;
+      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)
+        return;
       _set(_current.copyWith(peers: peers, refreshingPeers: false));
       if (announce) {
         _notify(peers.isEmpty ? '成员：暂无' : '成员：${peers.length} 人');
       }
     } on Object catch (error) {
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id) return;
+      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)
+        return;
       _set(_current.copyWith(refreshingPeers: false));
       if (announce) _notify('刷新成员失败：$error', isError: true);
     }
@@ -725,7 +730,8 @@ class MdtbbsMultiplayerService {
         sessionId: session.id,
         targetUserId: targetUserId,
       );
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id) return;
+      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)
+        return;
       _set(
         _current.copyWith(
           sentInvites: [
@@ -771,8 +777,9 @@ class MdtbbsMultiplayerService {
         _current.copyWith(
           clearBusyInvite: true,
           invites: revoke ? _current.invites : _withoutInvite(inviteId),
-          sentInvites:
-              revoke ? _withoutSentInvite(inviteId) : _current.sentInvites,
+          sentInvites: revoke
+              ? _withoutSentInvite(inviteId)
+              : _current.sentInvites,
         ),
       );
       _notify(revoke ? '已撤销邀请' : '已拒绝邀请');
@@ -888,7 +895,8 @@ class MdtbbsMultiplayerService {
     _heartbeatInFlightGeneration = generation;
     try {
       final token = await _token();
-      if (token == null || !_isCurrentHeartbeat(sessionId, peerId, generation)) {
+      if (token == null ||
+          !_isCurrentHeartbeat(sessionId, peerId, generation)) {
         return;
       }
       final beat = await MdtbbsMultiplayerApi.peerHeartbeat(
@@ -1038,7 +1046,9 @@ class MdtbbsMultiplayerService {
       }
 
       addLogAndPrint(.error, '心跳连续失败且服务端确认原 peer 已失效', tag: 'Multiplayer');
-      await _clearStoredSessionAfterServerRejection(expectedAccountEpoch: epoch);
+      await _clearStoredSessionAfterServerRejection(
+        expectedAccountEpoch: epoch,
+      );
     } finally {
       _heartbeatRecoveryInFlight = false;
     }
@@ -1094,7 +1104,8 @@ class MdtbbsMultiplayerService {
     MdtbbsRelayProxyPorts? unownedPorts;
     try {
       final auth = await tunnel.start().timeout(const Duration(seconds: 30));
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id) {
+      if (!_isAccountEpochCurrent(epoch) ||
+          _current.session?.id != session.id) {
         await tunnel.dispose();
         return;
       }
@@ -1112,7 +1123,8 @@ class MdtbbsMultiplayerService {
       if (auth.peerRole == 'owner') {
         final bridge = MdtbbsRelayHostBridge(tunnel: tunnel);
         await bridge.start().timeout(const Duration(seconds: 10));
-        if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id) {
+        if (!_isAccountEpochCurrent(epoch) ||
+            _current.session?.id != session.id) {
           await bridge.dispose();
           await tunnel.dispose();
           return;
@@ -1133,7 +1145,8 @@ class MdtbbsMultiplayerService {
           accessToken: peersToken,
           sessionId: session.id,
         ).timeout(const Duration(seconds: 15));
-        if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id) {
+        if (!_isAccountEpochCurrent(epoch) ||
+            _current.session?.id != session.id) {
           throw const MdtbbsRelayException('会话或账号已经切换');
         }
         final owner = peers.where((p) => p.role == 'owner').toList();
@@ -1153,7 +1166,8 @@ class MdtbbsMultiplayerService {
     } on Object catch (error) {
       await _closeProxyPorts(unownedPorts);
       await tunnel.dispose();
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id) return;
+      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)
+        return;
       _set(_current.copyWith(startingProxy: false));
       _notify('启动联机通道失败：${_describeProxyError(error)}', isError: true);
       return;
