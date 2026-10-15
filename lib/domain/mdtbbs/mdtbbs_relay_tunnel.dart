@@ -346,8 +346,9 @@ class MdtbbsRelayTunnel {
           tag: 'Multiplayer',
         );
         final completer = _authCompleter;
-        if (completer != null && !completer.isCompleted)
+        if (completer != null && !completer.isCompleted) {
           completer.complete(signal);
+        }
         _emit(signal);
       case 'reauth_ok':
         final completer = _reauthCompleter;

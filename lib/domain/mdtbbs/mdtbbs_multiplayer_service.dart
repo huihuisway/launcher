@@ -14,7 +14,6 @@ import 'package:copper_launcher/domain/task.dart';
 import 'package:copper_launcher/domain/task_manager.dart';
 import 'package:copper_launcher/ui/util/notification.dart';
 import 'package:copper_launcher/util/io/log.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -652,15 +651,19 @@ class MdtbbsMultiplayerService {
         accessToken: token,
         sessionId: session.id,
       );
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)
+      if (!_isAccountEpochCurrent(epoch) ||
+          _current.session?.id != session.id) {
         return;
+      }
       _set(_current.copyWith(peers: peers, refreshingPeers: false));
       if (announce) {
         _notify(peers.isEmpty ? '成员：暂无' : '成员：${peers.length} 人');
       }
     } on Object catch (error) {
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)
+      if (!_isAccountEpochCurrent(epoch) ||
+          _current.session?.id != session.id) {
         return;
+      }
       _set(_current.copyWith(refreshingPeers: false));
       if (announce) _notify('刷新成员失败：$error', isError: true);
     }
@@ -730,8 +733,10 @@ class MdtbbsMultiplayerService {
         sessionId: session.id,
         targetUserId: targetUserId,
       );
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)
+      if (!_isAccountEpochCurrent(epoch) ||
+          _current.session?.id != session.id) {
         return;
+      }
       _set(
         _current.copyWith(
           sentInvites: [
@@ -1166,8 +1171,10 @@ class MdtbbsMultiplayerService {
     } on Object catch (error) {
       await _closeProxyPorts(unownedPorts);
       await tunnel.dispose();
-      if (!_isAccountEpochCurrent(epoch) || _current.session?.id != session.id)
+      if (!_isAccountEpochCurrent(epoch) ||
+          _current.session?.id != session.id) {
         return;
+      }
       _set(_current.copyWith(startingProxy: false));
       _notify('启动联机通道失败：${_describeProxyError(error)}', isError: true);
       return;
